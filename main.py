@@ -18,16 +18,24 @@ from aiogram.filters import CommandStart
 from aiogram.types import Message
 from aiogram.utils.markdown import hbold
 from dotenv import load_dotenv
+import sqlalchemy as sa
 from sqlalchemy import create_engine
+from src.db import User
 load_dotenv()  # take environment variables from .env.
-engine = create_engine("sqlite+pysqlite:///european_database.sqlite")
-
+engine = create_engine("sqlite+pysqlite:///truemeet.sqlite")
+connection = engine.connect()
 # Bot token can be obtained via https://t.me/BotFather
 TOKEN = getenv("TG_BOT_TOKEN")
 
 # All handlers should be attached to the Router (or Dispatcher)
 dp = Dispatcher()
-user_list = set()
+
+output_user = connection.execute(sa.select(User.username)).fetchall()
+output_user_id = connection.execute(sa.select(User.user_id)).fetchall()
+
+user_list = [x[0] for x in output_user]
+user_id_list = [x[0] for x in output_user_id]
+print(user_list, user_id_list)
 
 
 @dp.message(CommandStart())
@@ -40,15 +48,28 @@ async def command_start_handler(message: Message) -> None:
     # and the target chat will be passed to :ref:`aiogram.methods.send_message.SendMessage`
     # method automatically or call API method directly via
     # Bot instance: `bot.send_message(chat_id=message.chat.id, ...)`
-    logging.info(message.from_user.username)
-    user_list.add(message.from_user.username)
-    if len(user_list) == 1:
-        greet_username = f"You and only you, {message.from_user.username}, little bastard :3"
+    current_username = message.from_user.username
+    current_user_id = str(message.from_user.id)
+    logging.info(f'{current_username}, {current_user_id}')
+    
+    if current_user_id not in user_id_list:
+        logging.info(f'{current_user_id} not in {user_id_list}')
+        user_list.append(current_username)
+        user_id_list.append(current_user_id)
+        
+        query = sa.insert(User).values(username=current_username, user_id=message.from_user.id)
+        connection.execute((query))
+        connection.commit()
     else:
-        greet_username = f"{message.from_user.username} (yea, thats you, little bastard :3)"
+        logging.info(f'Found user {user_id_list} in {current_user_id}.')
+    
+    if len(user_list) == 1:
+        greet_username = f"You and only you, {current_username}, little bastard :3"
+    else:
+        greet_username = f"{current_username} (yea, thats you, little bastard :3)"
     # message.username
     await message.answer(f"Hey, {hbold(message.from_user.full_name)}! "
-                         f"Another users:\n {', '.join(str(item) for item in user_list).replace(message.from_user.username, greet_username)}")
+                         f"Another users:\n {', '.join(str(item) for item in user_list).replace(current_username, greet_username)}")
 
 
 @dp.message()
