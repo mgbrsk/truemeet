@@ -22,7 +22,9 @@ import sqlalchemy as sa
 from sqlalchemy import create_engine
 from src.db import User
 load_dotenv()  # take environment variables from .env.
-engine = create_engine("sqlite+pysqlite:///truemeet.sqlite")
+# engine = create_engine("sqlite+pysqlite:///truemeet.sqlite")
+engine = create_engine(f"postgresql+psycopg2://{getenv('BD_USER')}:{getenv('BD_PASSWORD')}@localhost:5433/postgres")
+
 connection = engine.connect()
 # Bot token can be obtained via https://t.me/BotFather
 TOKEN = getenv("TG_BOT_TOKEN")
